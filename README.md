@@ -19,6 +19,7 @@
 | `https://store.ryanai.org/` | `state/ryanai.cookie` |
 | `https://oeo.cc.cd/` | `state/oeo.cookie` |
 | `https://ldc-shop.3-418.workers.dev/` | `state/ldc-shop.3-418.cookie` |
+| `https://ldc.wxqq.de5.net/` | `state/ldc.wxqq.de5.net.cookie` |
 
 可通过 `--cookie-file` 覆盖默认路径；非内置站点默认使用 `state/<host>.cookie`。
 
@@ -65,6 +66,7 @@ python scripts/checkin_wizard.py
 # state/shops.txt
 https://oeo.cc.cd/
 https://ldc-shop.3-418.workers.dev/
+https://ldc.wxqq.de5.net/
 ```
 
 或直接复制模板：
@@ -111,6 +113,7 @@ chmod 600 state/*.cookie
 python scripts/ryanai_store_checkin.py
 python scripts/ryanai_store_checkin.py --base-url https://oeo.cc.cd/
 python scripts/ryanai_store_checkin.py --base-url https://ldc-shop.3-418.workers.dev/
+python scripts/ryanai_store_checkin.py --base-url https://ldc.wxqq.de5.net/
 ```
 
 ### 3) 一次执行全部站点
@@ -118,7 +121,14 @@ python scripts/ryanai_store_checkin.py --base-url https://ldc-shop.3-418.workers
 ```bash
 python scripts/ryanai_store_checkin.py && \
 python scripts/ryanai_store_checkin.py --base-url https://oeo.cc.cd/ && \
-python scripts/ryanai_store_checkin.py --base-url https://ldc-shop.3-418.workers.dev/
+python scripts/ryanai_store_checkin.py --base-url https://ldc-shop.3-418.workers.dev/ && \
+python scripts/ryanai_store_checkin.py --base-url https://ldc.wxqq.de5.net/
+```
+
+最简一键执行全部（四店）：
+
+```bash
+python scripts/ryanai_store_checkin.py && python scripts/ryanai_store_checkin.py --base-url https://oeo.cc.cd/ && python scripts/ryanai_store_checkin.py --base-url https://ldc-shop.3-418.workers.dev/ && python scripts/ryanai_store_checkin.py --base-url https://ldc.wxqq.de5.net/
 ```
 
 ## 定时执行（cron）
@@ -134,6 +144,7 @@ crontab -e
 <python_path> scripts/ryanai_store_checkin.py; \
 <python_path> scripts/ryanai_store_checkin.py --base-url https://oeo.cc.cd/; \
 <python_path> scripts/ryanai_store_checkin.py --base-url https://ldc-shop.3-418.workers.dev/; \
+<python_path> scripts/ryanai_store_checkin.py --base-url https://ldc.wxqq.de5.net/; \
 } >> <repo_path>/logs/checkin.log 2>&1
 ```
 

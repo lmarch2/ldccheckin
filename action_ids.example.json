@@ -6,5 +6,9 @@
   "ldc-shop.3-418.workers.dev": {
     "status_action_id": "00ec8c9facbe1fdceb7685cd71a8bfeb02d4fdede7",
     "checkin_action_id": "009d7dd2852e6e10b697787cba9a82d33cc5041694"
+  },
+  "ldc.wxqq.de5.net": {
+    "status_action_id": "00e4e8841f678dbf8b88c158c6d22ca296ab0c3e4f",
+    "checkin_action_id": "00d85e3a8ba71bd3e0a3bd837fba3976cc965525c9"
   }
 }
