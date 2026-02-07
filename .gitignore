@@ -4,8 +4,12 @@ __pycache__/
 .venv/
 *.egg-info/
 .pytest_cache/
+*.log
 
-# Playwright 登录态与调试产物（视为敏感信息）
+# Local tooling metadata
+.claude/
+
+# Runtime state and artifacts (sensitive)
 state/
 artifacts/
 logs/
