@@ -38,7 +38,7 @@ pip install -r requirements.txt
 
 ```bash
 # 1) 启动交互式向导
-python scripts/checkin_wizard.py
+python scripts/wizard.py
 
 # 2) 按提示输入 URL / Cookie / actionId
 # 3) 自动创建每日签到 crontab（可选）
@@ -47,7 +47,7 @@ python scripts/checkin_wizard.py
 ## 交互式向导（推荐）
 
 ```bash
-python scripts/checkin_wizard.py
+python scripts/wizard.py
 ```
 
 向导会依次完成：
@@ -80,7 +80,7 @@ cp shops.example.txt state/shops.txt
 批量模式运行：
 
 ```bash
-python scripts/checkin_wizard.py --url-file state/shops.txt
+python scripts/wizard.py --url-file state/shops.txt
 ```
 
 ## 快速开始
@@ -104,48 +104,44 @@ cat > state/ldc-shop.3-418.cookie <<'EOF'
 <ldc-shop.3-418.workers.dev cookie>
 EOF
 
+cat > state/ldc.wxqq.de5.net.cookie <<'EOF'
+<ldc.wxqq.de5.net cookie>
+EOF
+
 chmod 600 state/*.cookie
 ```
 
 ### 2) 单站执行
 
 ```bash
-python scripts/ryanai_store_checkin.py
-python scripts/ryanai_store_checkin.py --base-url https://oeo.cc.cd/
-python scripts/ryanai_store_checkin.py --base-url https://ldc-shop.3-418.workers.dev/
-python scripts/ryanai_store_checkin.py --base-url https://ldc.wxqq.de5.net/
+python scripts/checkin.py
+python scripts/checkin.py --base-url https://oeo.cc.cd/
+python scripts/checkin.py --base-url https://ldc-shop.3-418.workers.dev/
+python scripts/checkin.py --base-url https://ldc.wxqq.de5.net/
 ```
 
-### 3) 一次执行全部站点
+### 3) 一次执行全部站点（推荐）
 
 ```bash
-python scripts/ryanai_store_checkin.py && \
-python scripts/ryanai_store_checkin.py --base-url https://oeo.cc.cd/ && \
-python scripts/ryanai_store_checkin.py --base-url https://ldc-shop.3-418.workers.dev/ && \
-python scripts/ryanai_store_checkin.py --base-url https://ldc.wxqq.de5.net/
+python scripts/checkin.py --run-all
 ```
 
-最简一键执行全部（四店）：
+兼容旧写法（手动串行）：
 
 ```bash
-python scripts/ryanai_store_checkin.py && python scripts/ryanai_store_checkin.py --base-url https://oeo.cc.cd/ && python scripts/ryanai_store_checkin.py --base-url https://ldc-shop.3-418.workers.dev/ && python scripts/ryanai_store_checkin.py --base-url https://ldc.wxqq.de5.net/
+python scripts/checkin.py && python scripts/checkin.py --base-url https://oeo.cc.cd/ && python scripts/checkin.py --base-url https://ldc-shop.3-418.workers.dev/ && python scripts/checkin.py --base-url https://ldc.wxqq.de5.net/
 ```
 
 ## 定时执行（cron）
 
 可直接使用向导自动创建，或手动配置。
 
-示例：每天 01:00 依次签到 3 个站点。
+示例：每天 01:00 依次签到 4 个站点。
 
 ```bash
 crontab -e
 
-0 1 * * * cd <repo_path> && { \
-<python_path> scripts/ryanai_store_checkin.py; \
-<python_path> scripts/ryanai_store_checkin.py --base-url https://oeo.cc.cd/; \
-<python_path> scripts/ryanai_store_checkin.py --base-url https://ldc-shop.3-418.workers.dev/; \
-<python_path> scripts/ryanai_store_checkin.py --base-url https://ldc.wxqq.de5.net/; \
-} >> <repo_path>/logs/checkin.log 2>&1
+0 1 * * * cd <repo_path> && <python_path> scripts/checkin.py --run-all >> <repo_path>/logs/checkin.log 2>&1
 ```
 
 将 `<repo_path>` 替换为仓库实际路径，将 `<python_path>` 替换为解释器绝对路径（例如 `~/.venv/bin/python`）。
@@ -153,13 +149,14 @@ crontab -e
 ## CLI 参数
 
 ```bash
-python scripts/ryanai_store_checkin.py --help
-python scripts/checkin_wizard.py --help
+python scripts/checkin.py --help
+python scripts/wizard.py --help
 ```
 
 常用参数：
 
 - `--base-url`：目标站点（默认 `https://store.ryanai.org/`）
+- `--run-all`：一键依次签到全部内置店铺（四店）
 - `--cookie-file`：Cookie 文件路径（默认按域名自动匹配）
 - `--cookie-env`：从环境变量读取 Cookie（优先于文件）
 - `--skip-status`：跳过状态查询，直接尝试签到
@@ -184,7 +181,7 @@ python scripts/checkin_wizard.py --help
 
 1. 命令行显式传入 `--status-action-id` + `--checkin-action-id`
 2. 读取 `--action-config-file`（默认 `state/action_ids.json`）
-3. 使用内置默认（已内置本文档列出的 3 个站点）
+3. 使用内置默认（已内置本文档列出的 4 个站点）
 
 当看到 `Server action not found` 时，请为对应站点补充配置，例如：
 
@@ -219,9 +216,13 @@ cp action_ids.example.json state/action_ids.json
 
 ```text
 .
+├── ldccheckin/
+│   ├── constants.py
+│   ├── cli_checkin.py
+│   └── cli_wizard.py
 ├── scripts/
-│   ├── ryanai_store_checkin.py
-│   └── checkin_wizard.py
+│   ├── checkin.py
+│   └── wizard.py
 ├── state/          # 本地 Cookie（已忽略）
 ├── artifacts/      # 调试输出（已忽略）
 ├── logs/           # 运行日志（已忽略）

@@ -14,41 +14,18 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
-DEFAULT_BASE_URL = "https://store.ryanai.org/"
-DEFAULT_COOKIE_ENV = "LDC_COOKIE"
-DEFAULT_COOKIE_FILE = ""
-DEFAULT_ACTION_CONFIG_FILE = "state/action_ids.json"
-DEFAULT_TIMEOUT_SECONDS = 30
-DEFAULT_ARTIFACTS_DIR = "artifacts"
-
-DEFAULT_CHECKIN_ACTION_ID = "00573f21cb6fdebcbb247b7ddbec9edcf954d96992"
-DEFAULT_STATUS_ACTION_ID = "00047583cb7e0d3bd45fc537bd80dc9c6a7c04a1e8"
-
-DEFAULT_ACTION_IDS_BY_HOST = {
-    "store.ryanai.org": {
-        "status_action_id": DEFAULT_STATUS_ACTION_ID,
-        "checkin_action_id": DEFAULT_CHECKIN_ACTION_ID,
-    },
-    "oeo.cc.cd": {
-        "status_action_id": "0020b40a07230b826fc09ad75e17528ec60fb3a27d",
-        "checkin_action_id": "0035d168722cee2c38c16bc8067f36a10067ee30ba",
-    },
-    "ldc-shop.3-418.workers.dev": {
-        "status_action_id": "00ec8c9facbe1fdceb7685cd71a8bfeb02d4fdede7",
-        "checkin_action_id": "009d7dd2852e6e10b697787cba9a82d33cc5041694",
-    },
-    "ldc.wxqq.de5.net": {
-        "status_action_id": "00e4e8841f678dbf8b88c158c6d22ca296ab0c3e4f",
-        "checkin_action_id": "00d85e3a8ba71bd3e0a3bd837fba3976cc965525c9",
-    },
-}
-
-DEFAULT_COOKIE_FILE_BY_HOST = {
-    "store.ryanai.org": "state/ryanai.cookie",
-    "oeo.cc.cd": "state/oeo.cookie",
-    "ldc-shop.3-418.workers.dev": "state/ldc-shop.3-418.cookie",
-    "ldc.wxqq.de5.net": "state/ldc.wxqq.de5.net.cookie",
-}
+from ldccheckin.constants import (
+    DEFAULT_ACTION_CONFIG_FILE,
+    DEFAULT_ACTION_IDS_BY_HOST,
+    DEFAULT_ALL_SHOP_URLS,
+    DEFAULT_ARTIFACTS_DIR,
+    DEFAULT_BASE_URL,
+    DEFAULT_COOKIE_ENV,
+    DEFAULT_COOKIE_FILE,
+    DEFAULT_TIMEOUT_SECONDS,
+    DEFAULT_USER_AGENT,
+    default_cookie_file_for_host,
+)
 
 COOKIE_PREFIX_RE = re.compile(r"^\s*cookie\s*[:=]\s*", re.IGNORECASE)
 
@@ -90,13 +67,6 @@ def _validate_base_url(base_url: str) -> None:
         raise ValueError("base_url host is empty")
 
 
-def _default_cookie_file_for_host(host: str) -> str:
-    mapped = DEFAULT_COOKIE_FILE_BY_HOST.get(host)
-    if mapped:
-        return mapped
-    return f"state/{host}.cookie"
-
-
 def _normalize_cookie(raw_cookie: str) -> str:
     cookie = raw_cookie.strip()
     cookie = COOKIE_PREFIX_RE.sub("", cookie, count=1).strip()
@@ -128,7 +98,7 @@ def _resolve_cookie_file(base_url: str, cookie_file: str) -> Path:
     host = _safe_hostname(base_url)
     if not host:
         raise ValueError("无法从 base_url 解析主机名，请通过 --cookie-file 指定")
-    return Path(_default_cookie_file_for_host(host)).expanduser()
+    return Path(default_cookie_file_for_host(host)).expanduser()
 
 
 def _read_action_map(action_config_file: Path) -> dict[str, dict[str, str]]:
@@ -286,6 +256,7 @@ def _extract_first_dict_with_key(body: str, key: str) -> dict[str, Any] | None:
 def _parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="多店自动签到（HTTP Server Action 方案）。")
     parser.add_argument("--base-url", default=DEFAULT_BASE_URL, help="目标站点 URL（默认：%(default)s）")
+    parser.add_argument("--run-all", action="store_true", help="按内置店铺列表依次签到全部小店")
     parser.add_argument("--cookie", default="", help="Cookie 字符串（不推荐：会进入 shell history）")
     parser.add_argument("--cookie-env", default=DEFAULT_COOKIE_ENV, help="读取 Cookie 的环境变量名（默认：%(default)s）")
     parser.add_argument(
@@ -318,38 +289,40 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     )
     parser.add_argument(
         "--user-agent",
-        default="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        default=DEFAULT_USER_AGENT,
         help="自定义 User-Agent（默认：Chrome/Linux）",
     )
     return parser.parse_args(argv)
 
 
-def main(argv: list[str]) -> int:
-    args = _parse_args(argv)
-    if args.timeout_seconds < 5:
-        print("错误：--timeout-seconds 不能小于 5", file=sys.stderr)
-        return ExitCodes.ERROR
-
+def _run_single_target(
+    args: argparse.Namespace,
+    *,
+    base_url: str,
+    cookie_file: str,
+    status_action_id: str,
+    checkin_action_id: str,
+) -> int:
     try:
-        _validate_base_url(args.base_url)
+        _validate_base_url(base_url)
     except ValueError as exc:
         print(f"错误：{exc}", file=sys.stderr)
         return ExitCodes.ERROR
 
-    host = _safe_hostname(args.base_url)
+    host = _safe_hostname(base_url)
 
     try:
-        cookie_file = _resolve_cookie_file(args.base_url, args.cookie_file)
+        resolved_cookie_file = _resolve_cookie_file(base_url, cookie_file)
     except ValueError as exc:
         print(f"错误：{exc}", file=sys.stderr)
         return ExitCodes.ERROR
 
     action_config_file = Path(args.action_config_file).expanduser()
     try:
-        status_action_id, checkin_action_id = _resolve_action_ids(
-            base_url=args.base_url,
-            status_action_id=args.status_action_id,
-            checkin_action_id=args.checkin_action_id,
+        resolved_status_action_id, resolved_checkin_action_id = _resolve_action_ids(
+            base_url=base_url,
+            status_action_id=status_action_id,
+            checkin_action_id=checkin_action_id,
             action_config_file=action_config_file,
         )
     except ValueError as exc:
@@ -357,10 +330,10 @@ def main(argv: list[str]) -> int:
         return ExitCodes.ERROR
 
     try:
-        cookie = _load_cookie(args.cookie, args.cookie_env, cookie_file)
+        cookie = _load_cookie(args.cookie, args.cookie_env, resolved_cookie_file)
     except FileNotFoundError:
-        print(f"未找到 Cookie 文件：{cookie_file}", file=sys.stderr)
-        print(f"请把浏览器里 {host or args.base_url} 的 Cookie 粘贴到该文件（注意权限 chmod 600）。", file=sys.stderr)
+        print(f"未找到 Cookie 文件：{resolved_cookie_file}", file=sys.stderr)
+        print(f"请把浏览器里 {host or base_url} 的 Cookie 粘贴到该文件（注意权限 chmod 600）。", file=sys.stderr)
         return ExitCodes.NEEDS_LOGIN
     except ValueError as exc:
         print(f"Cookie 无效：{exc}", file=sys.stderr)
@@ -374,8 +347,8 @@ def main(argv: list[str]) -> int:
     if not args.skip_status:
         try:
             status_resp = _post_action(
-                base_url=args.base_url,
-                action_id=status_action_id,
+                base_url=base_url,
+                action_id=resolved_status_action_id,
                 cookie=cookie,
                 timeout_seconds=args.timeout_seconds,
                 user_agent=args.user_agent,
@@ -386,7 +359,7 @@ def main(argv: list[str]) -> int:
 
         if _is_server_action_not_found(status_resp):
             _write_artifact(artifacts_dir, "status_action_not_found", status_resp)
-            _print_action_config_hint(host=host or args.base_url, action_config_file=action_config_file)
+            _print_action_config_hint(host=host or base_url, action_config_file=action_config_file)
             return ExitCodes.ERROR
 
         status_obj = _extract_first_dict_with_key(status_resp.body, "checkedIn")
@@ -396,8 +369,8 @@ def main(argv: list[str]) -> int:
 
     try:
         checkin_resp = _post_action(
-            base_url=args.base_url,
-            action_id=checkin_action_id,
+            base_url=base_url,
+            action_id=resolved_checkin_action_id,
             cookie=cookie,
             timeout_seconds=args.timeout_seconds,
             user_agent=args.user_agent,
@@ -408,7 +381,7 @@ def main(argv: list[str]) -> int:
 
     if _is_server_action_not_found(checkin_resp):
         _write_artifact(artifacts_dir, "checkin_action_not_found", checkin_resp)
-        _print_action_config_hint(host=host or args.base_url, action_config_file=action_config_file)
+        _print_action_config_hint(host=host or base_url, action_config_file=action_config_file)
         return ExitCodes.ERROR
 
     if CLOUDFLARE_HINT_RE.search(checkin_resp.body):
@@ -444,6 +417,58 @@ def main(argv: list[str]) -> int:
     else:
         print("签到失败：未知错误（已保存 artifacts/ 调试响应）。", file=sys.stderr)
     return ExitCodes.ERROR
+
+
+def main(argv: list[str]) -> int:
+    args = _parse_args(argv)
+    if args.timeout_seconds < 5:
+        print("错误：--timeout-seconds 不能小于 5", file=sys.stderr)
+        return ExitCodes.ERROR
+
+    if not args.run_all:
+        return _run_single_target(
+            args,
+            base_url=args.base_url,
+            cookie_file=args.cookie_file,
+            status_action_id=args.status_action_id,
+            checkin_action_id=args.checkin_action_id,
+        )
+
+    if args.cookie.strip():
+        print("提示：--run-all 模式会按域名读取 Cookie 文件，已忽略 --cookie。", file=sys.stderr)
+    args.cookie = ""
+    if args.cookie_file.strip():
+        print("提示：--run-all 模式会按域名自动映射 Cookie 文件，已忽略 --cookie-file。", file=sys.stderr)
+    if args.status_action_id.strip() or args.checkin_action_id.strip():
+        print("提示：--run-all 模式会按域名读取 actionId，已忽略 --status-action-id/--checkin-action-id。", file=sys.stderr)
+
+    results: list[tuple[str, int]] = []
+    for base_url in DEFAULT_ALL_SHOP_URLS:
+        print(f"\n=== {base_url} ===")
+        exit_code = _run_single_target(
+            args,
+            base_url=base_url,
+            cookie_file="",
+            status_action_id="",
+            checkin_action_id="",
+        )
+        results.append((base_url, exit_code))
+
+    ok_count = sum(1 for _, code in results if code == ExitCodes.OK)
+    needs_login_urls = [url for url, code in results if code == ExitCodes.NEEDS_LOGIN]
+    error_urls = [url for url, code in results if code == ExitCodes.ERROR]
+
+    print("\n=== 汇总 ===")
+    print(f"成功 {ok_count} 个，需更新 Cookie {len(needs_login_urls)} 个，失败 {len(error_urls)} 个。")
+
+    if needs_login_urls:
+        print("需更新 Cookie：" + "、".join(needs_login_urls), file=sys.stderr)
+    if error_urls:
+        print("执行失败：" + "、".join(error_urls), file=sys.stderr)
+        return ExitCodes.ERROR
+    if needs_login_urls:
+        return ExitCodes.NEEDS_LOGIN
+    return ExitCodes.OK
 
 
 if __name__ == "__main__":

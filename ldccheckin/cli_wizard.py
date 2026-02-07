@@ -21,10 +21,14 @@ from rich.prompt import Confirm, IntPrompt, Prompt
 from rich.table import Table
 
 
-DEFAULT_ACTION_CONFIG_FILE = "state/action_ids.json"
-DEFAULT_TIMEOUT_SECONDS = 20
-DEFAULT_CRON_HOUR = 1
-DEFAULT_CRON_MINUTE = 0
+from ldccheckin.constants import (
+    DEFAULT_ACTION_CONFIG_FILE,
+    DEFAULT_CRON_HOUR,
+    DEFAULT_CRON_MINUTE,
+    DEFAULT_USER_AGENT,
+    DEFAULT_WIZARD_TIMEOUT_SECONDS,
+    default_cookie_file_for_host,
+)
 
 
 @dataclass(frozen=True)
@@ -55,15 +59,6 @@ def _normalize_url(raw: str) -> str:
     return f"https://{host}/"
 
 
-def _default_cookie_file_for_host(host: str) -> Path:
-    special = {
-        "store.ryanai.org": "state/ryanai.cookie",
-        "oeo.cc.cd": "state/oeo.cookie",
-        "ldc-shop.3-418.workers.dev": "state/ldc-shop.3-418.cookie",
-    }
-    return Path(special.get(host, f"state/{host}.cookie"))
-
-
 def _read_urls_from_file(path: Path) -> list[str]:
     if not path.exists():
         raise FileNotFoundError(str(path))
@@ -80,7 +75,7 @@ def _fetch_shop_info(url: str, timeout_seconds: int) -> tuple[str, str]:
     req = Request(
         url,
         headers={
-            "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            "user-agent": DEFAULT_USER_AGENT,
             "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         },
     )
@@ -164,7 +159,7 @@ def _append_or_update_cron(
     commands: list[str] = []
     for shop in shops:
         cmd = (
-            f"{python_path} scripts/ryanai_store_checkin.py "
+            f"{python_path} scripts/checkin.py "
             f"--base-url {shop.url} "
             f"--cookie-file {shop.cookie_file} "
             f"--action-config-file {action_config_file}"
@@ -214,7 +209,7 @@ def _prepare_shop_configs(urls: list[str], timeout_seconds: int) -> list[ShopCon
                 host=host,
                 title=title,
                 description=desc,
-                cookie_file=_default_cookie_file_for_host(host),
+                cookie_file=Path(default_cookie_file_for_host(host)),
             )
         )
     return result
@@ -301,7 +296,7 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--url", default="", help="单个店铺 URL")
     parser.add_argument("--url-file", default="", help="批量 URL 文件，每行一个 URL")
     parser.add_argument("--action-config-file", default=DEFAULT_ACTION_CONFIG_FILE, help="actionId 配置文件路径")
-    parser.add_argument("--timeout-seconds", type=int, default=DEFAULT_TIMEOUT_SECONDS, help="抓取店铺信息超时秒数")
+    parser.add_argument("--timeout-seconds", type=int, default=DEFAULT_WIZARD_TIMEOUT_SECONDS, help="抓取店铺信息超时秒数")
     return parser.parse_args(argv)
 
 
