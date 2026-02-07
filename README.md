@@ -1,18 +1,18 @@
 # LDC 多店自动签到（Cookie + HTTP）
 
-基于 Python 标准库，通过 HTTP 调用站点的 Next.js Server Action 完成签到。
+基于 Python，通过 HTTP 调用站点的 Next.js Server Action 完成签到。
 
-- 无需浏览器自动化
-- 无需第三方 Python 依赖
-- 支持多站点按域名自动匹配 Cookie 文件
+- 提供美观的交互式配置向导（Rich TUI）
+- 支持单 URL 与文件批量导入 URL
+- 支持自动抓取店铺标题/描述、录入 Cookie、创建每日计划任务
 
 ## 功能特性
 
 - 自动判断“今日已签到”与“需要签到”
 - 失败时输出可读错误并保留调试响应到 `artifacts/`
-- 仅允许白名单站点，避免误发 Cookie 到未知域名
+- 支持任意 HTTPS 店铺 URL（可用 `action_ids.json` 覆盖 actionId）
 
-## 支持站点
+## 内置默认站点（可扩展）
 
 | 站点 | 默认 Cookie 文件 |
 | --- | --- |
@@ -20,12 +20,66 @@
 | `https://oeo.cc.cd/` | `state/oeo.cookie` |
 | `https://ldc-shop.3-418.workers.dev/` | `state/ldc-shop.3-418.cookie` |
 
-可通过 `--cookie-file` 覆盖默认路径。
+可通过 `--cookie-file` 覆盖默认路径；非内置站点默认使用 `state/<host>.cookie`。
 
 ## 环境要求
 
 - Python 3.10+
 - Linux / macOS / Docker 均可
+
+安装依赖：
+
+```bash
+pip install -r requirements.txt
+```
+
+## 10 秒上手
+
+```bash
+# 1) 启动交互式向导
+python scripts/checkin_wizard.py
+
+# 2) 按提示输入 URL / Cookie / actionId
+# 3) 自动创建每日签到 crontab（可选）
+```
+
+## 交互式向导（推荐）
+
+```bash
+python scripts/checkin_wizard.py
+```
+
+向导会依次完成：
+
+1. 输入单个 URL 或从文件批量读取 URL
+2. 直接抓取店铺信息（标题、描述）并展示
+3. 让你逐个粘贴对应 Cookie
+4. 写入/补全 `state/action_ids.json`
+5. 创建每日签到 `crontab` 任务
+
+### URL 文件格式示例
+
+每行一个 URL，支持注释行：
+
+```text
+# state/shops.txt
+https://oeo.cc.cd/
+https://ldc-shop.3-418.workers.dev/
+```
+
+或直接复制模板：
+
+```bash
+cp shops.example.txt state/shops.txt
+```
+
+模板文件路径：`shops.example.txt`
+
+批量模式运行：
+
+```bash
+python scripts/checkin_wizard.py --url-file state/shops.txt
+```
 
 ## 快速开始
 
@@ -69,6 +123,8 @@ python scripts/ryanai_store_checkin.py --base-url https://ldc-shop.3-418.workers
 
 ## 定时执行（cron）
 
+可直接使用向导自动创建，或手动配置。
+
 示例：每天 01:00 依次签到 3 个站点。
 
 ```bash
@@ -87,6 +143,7 @@ crontab -e
 
 ```bash
 python scripts/ryanai_store_checkin.py --help
+python scripts/checkin_wizard.py --help
 ```
 
 常用参数：
@@ -95,6 +152,12 @@ python scripts/ryanai_store_checkin.py --help
 - `--cookie-file`：Cookie 文件路径（默认按域名自动匹配）
 - `--cookie-env`：从环境变量读取 Cookie（优先于文件）
 - `--skip-status`：跳过状态查询，直接尝试签到
+
+向导常用参数：
+
+- `--url`：单个店铺 URL
+- `--url-file`：批量 URL 文件
+- `--action-config-file`：actionId 配置文件路径
 
 ## 退出码
 
@@ -146,10 +209,13 @@ cp action_ids.example.json state/action_ids.json
 ```text
 .
 ├── scripts/
-│   └── ryanai_store_checkin.py
+│   ├── ryanai_store_checkin.py
+│   └── checkin_wizard.py
 ├── state/          # 本地 Cookie（已忽略）
 ├── artifacts/      # 调试输出（已忽略）
 ├── logs/           # 运行日志（已忽略）
+├── action_ids.example.json
+├── shops.example.txt
 ├── requirements.txt
 └── README.md
 ```

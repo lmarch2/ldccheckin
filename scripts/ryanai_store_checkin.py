@@ -37,14 +37,18 @@ DEFAULT_ACTION_IDS_BY_HOST = {
         "status_action_id": "00ec8c9facbe1fdceb7685cd71a8bfeb02d4fdede7",
         "checkin_action_id": "009d7dd2852e6e10b697787cba9a82d33cc5041694",
     },
+    "ldc.wxqq.de5.net": {
+        "status_action_id": "00e4e8841f678dbf8b88c158c6d22ca296ab0c3e4f",
+        "checkin_action_id": "00d85e3a8ba71bd3e0a3bd837fba3976cc965525c9",
+    },
 }
 
 DEFAULT_COOKIE_FILE_BY_HOST = {
     "store.ryanai.org": "state/ryanai.cookie",
     "oeo.cc.cd": "state/oeo.cookie",
     "ldc-shop.3-418.workers.dev": "state/ldc-shop.3-418.cookie",
+    "ldc.wxqq.de5.net": "state/ldc.wxqq.de5.net.cookie",
 }
-ALLOWED_HOSTS = frozenset(DEFAULT_COOKIE_FILE_BY_HOST)
 
 COOKIE_PREFIX_RE = re.compile(r"^\s*cookie\s*[:=]\s*", re.IGNORECASE)
 
@@ -85,9 +89,12 @@ def _validate_base_url(base_url: str) -> None:
     if not host:
         raise ValueError("base_url host is empty")
 
-    if host not in ALLOWED_HOSTS:
-        allowlist = ", ".join(sorted(ALLOWED_HOSTS))
-        raise ValueError(f"base_url host must be one of: {allowlist}")
+
+def _default_cookie_file_for_host(host: str) -> str:
+    mapped = DEFAULT_COOKIE_FILE_BY_HOST.get(host)
+    if mapped:
+        return mapped
+    return f"state/{host}.cookie"
 
 
 def _normalize_cookie(raw_cookie: str) -> str:
@@ -119,10 +126,9 @@ def _resolve_cookie_file(base_url: str, cookie_file: str) -> Path:
         return Path(raw).expanduser()
 
     host = _safe_hostname(base_url)
-    mapped = DEFAULT_COOKIE_FILE_BY_HOST.get(host)
-    if mapped is None:
-        raise ValueError("未配置该站点的默认 Cookie 文件，请通过 --cookie-file 指定")
-    return Path(mapped).expanduser()
+    if not host:
+        raise ValueError("无法从 base_url 解析主机名，请通过 --cookie-file 指定")
+    return Path(_default_cookie_file_for_host(host)).expanduser()
 
 
 def _read_action_map(action_config_file: Path) -> dict[str, dict[str, str]]:

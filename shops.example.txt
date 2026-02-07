@@ -1,0 +1,4 @@
+# 每行一个店铺 URL，支持 # 注释
+https://store.ryanai.org/
+https://oeo.cc.cd/
+https://ldc-shop.3-418.workers.dev/
