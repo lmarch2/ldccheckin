@@ -183,6 +183,21 @@ Different shops use different Server Actions (`next-action`). Resolution order:
 
 If you see `Server action not found`, capture the correct `next-action` values in browser DevTools and add them.
 
+You can also auto-discover and write `state/action_ids.json`:
+
+```bash
+python scripts/action_ids.py --run-all
+# or single site
+python scripts/action_ids.py --base-url https://oeo.cc.cd/
+```
+
+The script scans `/_next/static/*.js` for 42-hex `next-action` candidates and probes Server Actions to identify:
+
+- `status_action_id`: response contains `checkedIn`
+- `checkin_action_id`: response contains `success`
+
+If cookies are missing/expired it will try probing without cookies first; if needed it may probe with cookies (may trigger one check-in).
+
 ## Security Notes
 
 - `state/`, `artifacts/`, and `logs/` are Git-ignored

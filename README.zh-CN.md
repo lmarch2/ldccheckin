@@ -206,6 +206,21 @@ python scripts/wizard.py --help
 cp action_ids.example.json state/action_ids.json
 ```
 
+也可以用脚本自动抓取并写入（推荐）：
+
+```bash
+python scripts/action_ids.py --run-all
+# 或单站点
+python scripts/action_ids.py --base-url https://oeo.cc.cd/
+```
+
+说明：
+
+- 脚本会扫描页面引用的 `/_next/static/*.js`，提取 42 位 `next-action` 候选，并通过请求探测自动区分：
+  - `status_action_id`：响应里包含 `checkedIn`
+  - `checkin_action_id`：响应里包含 `success`
+- 若 Cookie 缺失/过期会先尽量无 Cookie 探测；必要时会用 Cookie 探测（可能触发一次签到）。
+
 抓取方式：在浏览器 DevTools 的 `Network` 面板中，找到签到相关请求头里的 `next-action`。
 
 ## 安全与开源注意事项
@@ -238,4 +253,3 @@ cp action_ids.example.json state/action_ids.json
 ## 免责声明
 
 请确保你对目标站点账号拥有合法访问权限，并遵守目标站点服务条款。
-
